@@ -6,17 +6,25 @@ import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class KubernetesServiceImpl implements KubernetesService {
+
+    private final KubernetesClient client;
+    @Value("${namespace}")
+    private final String NAMESPACE;
 
     @Override
     public Deployment deployment(FunctionDefinition function) {
-          return new DeploymentBuilder()
+          Deployment deploymentTemplate = new DeploymentBuilder()
                 .withKind("Deployment")
                 .withNewMetadata()
                     .withName(function.getImageName() + "-deployment")
@@ -54,11 +62,13 @@ public class KubernetesServiceImpl implements KubernetesService {
                     .endTemplate()
                 .endSpec()
                 .build();
+
+          return client.apps().deployments().inNamespace(NAMESPACE).create(deploymentTemplate);
     }
 
     @Override
     public io.fabric8.kubernetes.api.model.Service service(FunctionDefinition function) {
-        return new ServiceBuilder()
+         io.fabric8.kubernetes.api.model.Service serviceTemplate = new ServiceBuilder()
                 .withKind("Service")
                 .withNewMetadata()
                     .withName(function.getImageName() + "-service")
@@ -73,5 +83,7 @@ public class KubernetesServiceImpl implements KubernetesService {
                     .withSelector(Map.of("func", function.getImageName()))
                 .endSpec()
                 .build();
+
+         return client.services().inNamespace(NAMESPACE).create(serviceTemplate);
     }
 }
