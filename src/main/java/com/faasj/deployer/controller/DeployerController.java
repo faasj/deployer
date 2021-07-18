@@ -1,7 +1,10 @@
 package com.faasj.deployer.controller;
 
+import com.faasj.deployer.dto.DeployDto;
 import com.faasj.deployer.dto.DeployedFunctionsCount;
 import com.faasj.deployer.dto.FunctionDefinition;
+import com.faasj.deployer.service.DeployService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -10,47 +13,48 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
 @RestController
 @RequestMapping("/")
+@RequiredArgsConstructor
 public class DeployerController {
 
-    Map<UUID, FunctionDefinition> deployedFunctions = new HashMap<>();
-    Map<LocalDateTime, String> logs = new HashMap<>();
+    private final DeployService deployService;
 
     @DeleteMapping("{functionId}")
     public void uninstallFunction(@PathVariable UUID functionId) {
-        deployedFunctions.remove(functionId);
-
-        logs.put(LocalDateTime.now(), "[INFO] function uninstalled ID " + functionId + '\n');
+        deployService.uninstallFunction(functionId);
     }
 
     @GetMapping(value = ("functions"), produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<DeployedFunctionsCount> getDeployedFunctions() {
-        DeployedFunctionsCount deployedFunctionsCount = new DeployedFunctionsCount(deployedFunctions.size());
+        DeployedFunctionsCount deployedFunctions = deployService.getDeployedFunctions();
 
-        return new ResponseEntity<>(deployedFunctionsCount, HttpStatus.OK);
+        return new ResponseEntity<>(deployedFunctions, HttpStatus.OK);
     }
 
     @PostMapping
     public void deployFunction(@RequestBody FunctionDefinition funDeployRequest) {
-        deployedFunctions.put(funDeployRequest.getFunctionId(), funDeployRequest);
-
-        logs.put(LocalDateTime.now(), "[INFO] function deployed ID " + funDeployRequest.getFunctionId() + '\n');
+        deployService.deployFunction(funDeployRequest);
     }
 
     @GetMapping(value = ("logs"), produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> getLogs(@RequestParam(required = false) String name,
                                           @RequestParam(required = false)
                                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime since) {
-        StringBuilder stringBuilder = new StringBuilder();
+        String logs = deployService.getLogs(name, since);
 
-        logs.entrySet().forEach(stringBuilder::append);
+        return new ResponseEntity<>(logs, HttpStatus.OK);
+    }
 
-        return new ResponseEntity<>(stringBuilder.toString(), HttpStatus.OK);
+    @GetMapping(value = "{serviceName}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DeployDto> getDeployedFunction(@PathVariable String serviceName) {
+        DeployDto deployedFunction = deployService.getDeployedFunction(serviceName);
+
+        return Objects.nonNull(deployedFunction) ?
+                new ResponseEntity<>(deployedFunction, HttpStatus.OK) : new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 }
