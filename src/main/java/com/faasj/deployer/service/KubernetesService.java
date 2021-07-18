@@ -9,4 +9,6 @@ public interface KubernetesService {
     Deployment deployment(FunctionDefinition function);
 
     Service service(FunctionDefinition function);
+
+    String checkDeployStatus(String functionName);
 }
