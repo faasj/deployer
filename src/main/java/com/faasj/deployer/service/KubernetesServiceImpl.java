@@ -1,5 +1,6 @@
 package com.faasj.deployer.service;
 
+import com.faasj.deployer.dto.DeployDto;
 import com.faasj.deployer.dto.FunctionDefinition;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.IntOrString;
@@ -7,7 +8,7 @@ import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,23 +16,27 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class KubernetesServiceImpl implements KubernetesService {
 
-    private final KubernetesClient client;
-    @Value("${namespace}")
-    private final String NAMESPACE;
+    private KubernetesClient client;
+    private String NAMESPACE;
+
+    public KubernetesServiceImpl(@Autowired KubernetesClient client,
+                                 @Value("${namespace}") String NAMESPACE) {
+        this.client = client;
+        this.NAMESPACE = NAMESPACE;
+    }
 
     @Override
     public Deployment deployment(FunctionDefinition function) {
           Deployment deploymentTemplate = new DeploymentBuilder()
                 .withKind("Deployment")
                 .withNewMetadata()
-                    .withName(function.getImageName() + "-deployment")
+                    .withName(function.getName() + "-deployment")
                 .endMetadata()
                 .withNewSpec()
                     .withNewSelector()
-                        .withMatchLabels(Map.of("func", function.getImageName()))
+                        .withMatchLabels(Map.of("func", function.getName()))
                     .endSelector()
                     .withReplicas(1)
                     .withNewStrategy()
@@ -44,13 +49,13 @@ public class KubernetesServiceImpl implements KubernetesService {
                     .withNewTemplate()
                         .withNewMetadata()
                             .withAnnotations(function.getAnnotations())
-                            .withLabels(Map.of("func", function.getImageName()))
+                            .withLabels(Map.of("func", function.getName()))
                         .endMetadata()
                         .withNewSpec()
                             .addNewContainer()
-                                .withImage(function.getImageName())
+                                .withImage(function.getImage())
                                 .withImagePullPolicy("Always")
-                                .withName(function.getImageName() + function.getFunctionId())
+                                .withName(function.getName() + function.getFunctionId())
                                 .withEnv(function.getEnvironmentVariables().entrySet().stream()
                                         .map(x -> new EnvVarBuilder().withName(x.getKey()).withValue(x.getValue()).build())
                                         .collect(Collectors.toList()))
@@ -71,7 +76,7 @@ public class KubernetesServiceImpl implements KubernetesService {
          io.fabric8.kubernetes.api.model.Service serviceTemplate = new ServiceBuilder()
                 .withKind("Service")
                 .withNewMetadata()
-                    .withName(function.getImageName() + "-service")
+                    .withName(function.getName() + "-service")
                 .endMetadata()
                 .withNewSpec()
                     .withType("LoadBalancer")
@@ -80,10 +85,10 @@ public class KubernetesServiceImpl implements KubernetesService {
                         .withProtocol("TCP")
                         .withTargetPort(new IntOrString(8080))
                     .endPort()
-                    .withSelector(Map.of("func", function.getImageName()))
+                    .withSelector(Map.of("func", function.getName()))
                 .endSpec()
                 .build();
 
-         return client.services().inNamespace(NAMESPACE).create(serviceTemplate);
+        return client.services().inNamespace(NAMESPACE).create(serviceTemplate);
     }
 }
