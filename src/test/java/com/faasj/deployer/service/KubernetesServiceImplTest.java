@@ -41,7 +41,7 @@ class KubernetesServiceImplTest {
     void test_deployment_all_important_fields_have_values() {
         Deployment deployment = service.deployment(function);
         assertEquals("Deployment", deployment.getKind());
-        assertEquals(function.getName() + "-deployment", deployment.getMetadata().getName());
+        assertEquals(function.getName(), deployment.getMetadata().getName());
         assertNotNull(deployment.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv());
         assertNotNull(deployment.getSpec().getTemplate().getMetadata().getAnnotations());
     }
@@ -50,7 +50,7 @@ class KubernetesServiceImplTest {
     void test_service_all_important_fields_have_values() {
         Service testService = service.service(function);
         assertEquals("Service", testService.getKind());
-        assertEquals(function.getName() + "-service", testService.getMetadata().getName());
+        assertEquals(function.getName(), testService.getMetadata().getName());
         assertNotNull(testService.getSpec().getSelector());
     }
 }

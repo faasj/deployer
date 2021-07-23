@@ -4,7 +4,11 @@ import com.faasj.deployer.dto.DeployDto;
 import com.faasj.deployer.dto.DeployedFunctionsCount;
 import com.faasj.deployer.dto.FunctionDefinition;
 import com.faasj.deployer.service.DeployService;
+import com.faasj.deployer.service.KubernetesService;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -23,6 +27,7 @@ import java.util.UUID;
 public class DeployerController {
 
     private final DeployService deployService;
+    private final KubernetesService kubernetesService;
 
     @DeleteMapping("{functionId}")
     public void uninstallFunction(@PathVariable UUID functionId) {
@@ -37,8 +42,14 @@ public class DeployerController {
     }
 
     @PostMapping
+    @SneakyThrows
     public void deployFunction(@RequestBody FunctionDefinition funDeployRequest) {
         deployService.deployFunction(funDeployRequest);
+
+        kubernetesService.deployment(funDeployRequest);
+        kubernetesService.service(funDeployRequest);
+
+        log.info(String.format("Function %s is deploying...", funDeployRequest.getName()));
     }
 
     @GetMapping(value = ("logs"), produces = MediaType.APPLICATION_JSON_VALUE)
@@ -56,5 +67,11 @@ public class DeployerController {
 
         return Objects.nonNull(deployedFunction) ?
                 new ResponseEntity<>(deployedFunction, HttpStatus.OK) : new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    @GetMapping(value = "/status/{functionName}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<String> getDeployStatus(@PathVariable String functionName) {
+
+        return new ResponseEntity<>(kubernetesService.checkDeployStatus(functionName), HttpStatus.OK);
     }
 }
